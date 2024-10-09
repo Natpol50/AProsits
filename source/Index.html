@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prosit Management Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.3/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.4.0/jspdf.umd.min.js"></script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg mt-10">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Prosit Management Tool</h1>
+
+        <!-- Create Prosit Form -->
+        <div id="createPrositForm" class="bg-white p-6 rounded-md shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Create New Prosit</h2>
+            <form id="prositForm" class="space-y-4">
+                <div>
+                    <input type="text" id="title" placeholder="Prosit Title" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                </div>
+                <div>
+                    <input type="text" id="keywordInput" placeholder="Keywords (comma-separated)" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <div id="keywordsContainer" class="mt-2 flex flex-wrap space-x-2"></div>
+                </div>
+                <div>
+                    <textarea id="context" placeholder="Context" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 h-24"></textarea>
+                </div>
+                <div>
+                    <textarea id="problemStatement" placeholder="Problem Statement" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 h-24"></textarea>
+                </div>
+                <div>
+                    <input type="text" id="constraintInput" placeholder="Constraints (comma-separated)" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <div id="constraintsContainer" class="mt-2 flex flex-wrap space-x-2"></div>
+                </div>
+                <div>
+                    <textarea id="generalization" placeholder="Generalization" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 h-24"></textarea>
+                </div>
+                <div>
+                    <textarea id="deliverables" placeholder="Deliverables" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 h-24"></textarea>
+                </div>
+                <div>
+                    <input type="text" id="solutionIdeaInput" placeholder="Solution Ideas (comma-separated)" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <div id="solutionIdeasContainer" class="mt-2 flex flex-wrap space-x-2"></div>
+                </div>
+                <div>
+                    <textarea id="actionPlan" placeholder="Action Plan" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 h-24"></textarea>
+                </div>
+                <button type="button" id="savePrositBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow-md flex items-center transition duration-300">
+                    <i class="fas fa-save mr-2"></i> Save Prosit
+                </button>
+            </form>
+        </div>
+
+        <!-- Manage Prosits Section (hidden by default) -->
+        <div id="manageProsits" class="hidden bg-white p-6 rounded-md shadow-md">
+            <h2 class="text-2xl font-semibold mb-4 text-gray-800">Manage Prosits</h2>
+            <div id="prositsList" class="space-y-4"></div>
+        </div>
+    </div>
+
+    <script>
+        let keywords = [];
+        let constraints = [];
+        let solutionIdeas = [];
+
+        // Auto-save whenever there's a change in inputs or lists
+        function autoSave() {
+            const title = document.getElementById('title').value;
+            const context = document.getElementById('context').value;
+            const problemStatement = document.getElementById('problemStatement').value;
+            const generalization = document.getElementById('generalization').value;
+            const deliverables = document.getElementById('deliverables').value;
+            const actionPlan = document.getElementById('actionPlan').value;
+
+            const prosit = {
+                title,
+                keywords,
+                context,
+                problemStatement,
+                constraints,
+                generalization,
+                deliverables,
+                solutionIdeas,
+                actionPlan
+            };
+
+            // Save Prosit to local storage
+            localStorage.setItem('currentProsit', JSON.stringify(prosit));
+        }
+
+        // Load saved data on page load
+        function loadPrositFromStorage() {
+            const savedProsit = JSON.parse(localStorage.getItem('currentProsit'));
+            if (savedProsit) {
+                document.getElementById('title').value = savedProsit.title || '';
+                document.getElementById('context').value = savedProsit.context || '';
+                document.getElementById('problemStatement').value = savedProsit.problemStatement || '';
+                document.getElementById('generalization').value = savedProsit.generalization || '';
+                document.getElementById('deliverables').value = savedProsit.deliverables || '';
+                document.getElementById('actionPlan').value = savedProsit.actionPlan || '';
+
+                keywords = savedProsit.keywords || [];
+                constraints = savedProsit.constraints || [];
+                solutionIdeas = savedProsit.solutionIdeas || [];
+
+                renderArray(keywords, 'keywordsContainer', deleteKeyword);
+                renderArray(constraints, 'constraintsContainer', deleteConstraint);
+                renderArray(solutionIdeas, 'solutionIdeasContainer', deleteSolutionIdea);
+            }
+        }
+
+        // Handle 'Enter' key event for adding items
+        function handleEnterKey(inputId, dataArray, containerId, deleteFunction) {
+            document.getElementById(inputId).addEventListener('keydown', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    const value = event.target.value.trim();
+                    if (value) {
+                        dataArray.push(value);
+                        renderArray(dataArray, containerId, deleteFunction);
+                        autoSave();  // Auto-save whenever a new item is added
+                        event.target.value = ''; // Clear the input field only if the value is not empty
+                    }
+                }
+            });
+        }
+
+        function renderArray(array, containerId, deleteFunction) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = '';
+            array.forEach((item, index) => {
+                const div = document.createElement('div');
+                div.classList.add('bg-blue-100', 'text-black', 'font-semibold', 'py-1', 'px-3', 'rounded-full', 'mr-2', 'mb-2', 'flex', 'items-center');
+                div.innerHTML = `
+                    ${item}
+                    <button class="ml-2 text-red-500 hover:text-red-700" onclick="${deleteFunction.name}(${index})">
+                        <i class="fas fa-times"></i>
+                    </button>
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        function deleteItem(array, index, renderFunction) {
+            array.splice(index, 1);
+            renderFunction();
+            autoSave();  // Auto-save whenever an item is deleted
+        }
+
+        // Event listeners and render functions
+        handleEnterKey('keywordInput', keywords, () => renderArray(keywords, 'keywordsContainer', deleteKeyword));
+        handleEnterKey('constraintInput', constraints, 'constraintsContainer', deleteConstraint);
+        handleEnterKey('solutionIdeaInput', solutionIdeas, 'solutionIdeasContainer', deleteSolutionIdea);
+        function deleteKeyword(index) { deleteItem(keywords, index, () => renderArray(keywords, 'keywordsContainer', deleteKeyword)); }
+        function deleteConstraint(index) { deleteItem(constraints, index, () => renderArray(constraints, 'constraintsContainer', deleteConstraint)); }
+        function deleteSolutionIdea(index) { deleteItem(solutionIdeas, index, () => renderArray(solutionIdeas, 'solutionIdeasContainer', deleteSolutionIdea)); }
+
+        // Auto-save on input changes
+        const formFields = ['title', 'context', 'problemStatement', 'generalization', 'deliverables', 'actionPlan'];
+        formFields.forEach(fieldId => {
+            document.getElementById(fieldId).addEventListener('input', autoSave);
+        });
+
+        // Load saved data when the page loads
+        window.onload = function() {
+            loadPrositFromStorage();
+        };
+
+    
+    document.getElementById('savePrositBtn').addEventListener('click', function() {
+    const title = document.getElementById('title').value;
+    const context = document.getElementById('context').value;
+    const problemStatement = document.getElementById('problemStatement').value;
+    const generalization = document.getElementById('generalization').value;
+    const deliverables = document.getElementById('deliverables').value;
+    const actionPlan = document.getElementById('actionPlan').value;
+
+    const prosit = {
+        title,
+        keywords,
+        context,
+        problemStatement,
+        constraints,
+        generalization,
+        deliverables,
+        solutionIdeas,
+        actionPlan
+    };
+
+    // Save to local storage (optional)
+    let prosits = JSON.parse(localStorage.getItem('prosits')) || [];
+    prosits.push(prosit);
+    localStorage.setItem('prosits', JSON.stringify(prosits));
+
+    // PDF Generation
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let yPosition = 10; // Initial vertical position for content
+
+    // Title
+    doc.text(`Prosit Title: ${title}`, 10, yPosition);
+    yPosition += 10;  // Move to next line
+
+    // Render Keywords in PDF
+    doc.text('Keywords:', 10, yPosition);
+    yPosition += 10;
+    yPosition = renderItemsInPDF(doc, keywords, yPosition); // Adjust yPosition based on items rendered
+
+    // Render Context
+    doc.text(`Context: ${context}`, 10, yPosition);
+    yPosition += 10;
+
+    // Render Problem Statement
+    doc.text(`Problem Statement: ${problemStatement}`, 10, yPosition);
+    yPosition += 10;
+
+    // Render Constraints in PDF (using same format as keywords)
+    doc.text('Constraints:', 10, yPosition);
+    yPosition += 10;
+    yPosition = renderItemsInPDF(doc, constraints, yPosition);
+
+    // Render Generalization
+    doc.text(`Generalization: ${generalization}`, 10, yPosition);
+    yPosition += 10;
+
+    // Render Deliverables
+    doc.text(`Deliverables: ${deliverables}`, 10, yPosition);
+    yPosition += 10;
+
+    // Render Solution Ideas in PDF (using same format as keywords)
+    doc.text('Solution Ideas:', 10, yPosition);
+    yPosition += 10;
+    yPosition = renderItemsInPDF(doc, solutionIdeas, yPosition);
+
+    // Render Action Plan
+    doc.text(`Action Plan: ${actionPlan}`, 10, yPosition);
+    yPosition += 10;
+
+    // Save the PDF file
+    doc.save(`prosit-${title}.pdf`);
+});
+
+/**
+Function to render items in rows of 3 per line, with a blank line after each row.
+@param {Object} doc - The jsPDF instance.
+@param {Array} items - The array of items (keywords, constraints, solution ideas).
+@param {number} startY - The starting Y position in the PDF.
+@returns {number} Updated Y position after all items are rendered.
+ */
+
+function renderItemsInPDF(doc, items, startY) {
+    let xPosition = 10; // Initial X position
+    let rowCounter = 0; // To track 3 items per line
+    let yPosition = startY; // Start from provided vertical position
+    let rowWidth = 190; // Maximum width of a row
+    let fontSize = 12; // Font size for items
+    let fontColor = 0; // Font color for items (black)
+
+    doc.setFontSize(fontSize);
+    doc.setTextColor(fontColor);
+
+    items.forEach((item, index) => {
+        // Calculate the width of the current item
+        let itemWidth = doc.getTextWidth(item) + 3; // Add 5 for the "pin" symbol
+
+        // Check if the item can fit in the current row
+        if (xPosition + itemWidth > rowWidth) {
+            // Move to the next line
+            xPosition = 10; // Reset X position
+            yPosition += 10; // Move down by 10 for the next row
+            rowCounter = 0; // Reset row counter
+        }
+
+        // Add a "pin" symbol (•) before each item
+        doc.text('•', xPosition, yPosition); 
+        doc.text(item, xPosition + 5, yPosition); // Adjust x position to give space for the "pin"
+
+        xPosition += itemWidth + 10; // Move to the next column for the next item
+
+        rowCounter++;
+    });
+
+    // Justify text if no items overflow
+    if (items.length < 3) {
+        let lastRowWidth = 0;
+        for (let i = items.length - 1; i >= 0; i--) {
+            lastRowWidth += doc.getTextWidth(items[i]) + 3;
+        }
+        let remainingWidth = rowWidth - lastRowWidth;
+        let spacing = remainingWidth / (items.length + 1);
+        xPosition = 10 + spacing;
+        yPosition -= 10;
+        rowCounter = 0;
+        items.forEach((item, index) => {
+            // Add a "pin" symbol (•) before each item
+            doc.text('•', xPosition, yPosition); 
+            doc.text(item, xPosition + 5, yPosition); // Adjust x position to give space for the "pin"
+            xPosition += doc.getTextWidth(item) + 3 + spacing;
+        });
+        yPosition += 10;
+    }
+
+    // Return the new Y position after all items are rendered
+    return yPosition + 10; // Add some extra spacing after the items
+}
+    </script>
+</body>
+</html>
