@@ -12,12 +12,31 @@
     <div class="max-w-4xl mx-auto p-6 bg-white shadow-lg rounded-lg mt-10">
         <h1 class="text-3xl font-bold text-gray-800 mb-6 text-center">Prosit Management Tool</h1>
 
+        <!-- Dark Mode Toggle Button -->
+        <div class="flex justify-end mb-4">
+            <button id="darkModeToggle" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md"></button>
+        </div>
+
+        <!-- Tabs -->
+        <div class="flex justify-center mb-4">
+            <button id="createTab" class="bg-blue-500 text-white px-4 py-2 rounded-md">Create Prosit</button>
+            <button id="manageTab" class="bg-gray-200 text-gray-800 px-4 py-2 rounded-md ml-2">Manage Prosits</button>
+        </div>
         <!-- Create Prosit Form -->
-        <div id="createPrositForm" class="bg-white p-6 rounded-md shadow-md">
+        <div id="createPrositForm" class="bg-white p-6 rounded-lg shadow-lg shadow-t-lg border border-gray-100">
             <h2 class="text-2xl font-semibold mb-4 text-gray-800">Create New Prosit</h2>
             <form id="prositForm" class="space-y-4">
+                <div class="flex justify-center space-x-4">
+                    <input type="text" id="scribe" placeholder="Scribe" class="w-1/5 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <input type="text" id="manager" placeholder="Manager" class="w-1/5 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <input type="text" id="timeHolder" placeholder="Time Holder" class="w-1/5 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    <input type="text" id="secretary" placeholder="Secretary" class="w-1/5 p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                </div>
                 <div>
                     <input type="text" id="title" placeholder="Prosit Title" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
+                </div>
+                <div>
+                    <input type="text" id="Description" placeholder="Le troisième prosit du bloc indus..." class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
                 </div>
                 <div>
                     <input type="text" id="keywordInput" placeholder="Keywords (comma-separated)" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400">
@@ -46,264 +65,404 @@
                 <div>
                     <textarea id="actionPlan" placeholder="Action Plan" class="w-full p-3 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-400 h-24"></textarea>
                 </div>
-                <button type="button" id="savePrositBtn" class="bg-green-500 hover:bg-green-600 text-white font-semibold py-2 px-4 rounded-md shadow-md flex items-center transition duration-300">
+                <div class="flex justify-center space-x-3">
+                <button type="button" id="savePrositBtn" class="bg-green-600 hover:bg-green-700 text-white font-semibold py-2 px-4 rounded-md shadow-md flex items-center transition duration-100">
                     <i class="fas fa-save mr-2"></i> Save Prosit
                 </button>
+                <button type="button" id="generateWordBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-semibold py-2 px-4 rounded-md shadow-md flex items-center transition duration-100">
+                    <i class="fas fa-file-word mr-2"></i> Generate Word
+                </button>
+                <button type="button" id="deletePrositBtn" class="bg-red-600 hover:bg-red-700 text-white font-semibold py-2 px-4 rounded-md shadow-md flex items-center transition duration-100">
+                    <i class="fas fa-trash-alt mr-2"></i> Delete Prosit
+                </button>
+            </div>
             </form>
         </div>
 
-        <!-- Manage Prosits Section (hidden by default) -->
-        <div id="manageProsits" class="hidden bg-white p-6 rounded-md shadow-md">
+        <!-- Manage Prosits -->
+        <div id="manageProsits" class="bg-white p-6 rounded-md shadow-md hidden">
             <h2 class="text-2xl font-semibold mb-4 text-gray-800">Manage Prosits</h2>
             <div id="prositsList" class="space-y-4"></div>
         </div>
     </div>
 
     <script>
+        // Arrays to store keywords, constraints, and solution ideas
         let keywords = [];
         let constraints = [];
         let solutionIdeas = [];
+        let prosits = JSON.parse(localStorage.getItem('prosits')) || [];
 
-        // Auto-save whenever there's a change in inputs or lists
-        function autoSave() {
-            const title = document.getElementById('title').value;
-            const context = document.getElementById('context').value;
-            const problemStatement = document.getElementById('problemStatement').value;
-            const generalization = document.getElementById('generalization').value;
-            const deliverables = document.getElementById('deliverables').value;
-            const actionPlan = document.getElementById('actionPlan').value;
-
-            const prosit = {
-                title,
-                keywords,
-                context,
-                problemStatement,
-                constraints,
-                generalization,
-                deliverables,
-                solutionIdeas,
-                actionPlan
-            };
-
-            // Save Prosit to local storage
-            localStorage.setItem('currentProsit', JSON.stringify(prosit));
+        /*
+            Render an array of items into a specified container (used for keywords, constraints, and solution ideas)
+            @param {Array} array - The array of items to render
+            @param {string} containerId - The ID of the container to render items into
+        */
+        function renderArray(array, containerId) {
+            const container = document.getElementById(containerId);
+            container.innerHTML = ''; // Clear the container before rendering
+            array.forEach((item, index) => {
+            const span = document.createElement('span');
+            span.className = 'bg-gray-200 p-2 rounded-md m-1 flex items-center';
+            span.innerHTML = `
+                ${item}
+                <button class="ml-2 text-red-500" onclick="deleteItem('${containerId}', ${index})">
+                <i class="fas fa-times"></i>
+                </button>
+            `;
+            container.appendChild(span);
+            });
         }
 
-        // Load saved data on page load
-        function loadPrositFromStorage() {
-            const savedProsit = JSON.parse(localStorage.getItem('currentProsit'));
-            if (savedProsit) {
-                document.getElementById('title').value = savedProsit.title || '';
-                document.getElementById('context').value = savedProsit.context || '';
-                document.getElementById('problemStatement').value = savedProsit.problemStatement || '';
-                document.getElementById('generalization').value = savedProsit.generalization || '';
-                document.getElementById('deliverables').value = savedProsit.deliverables || '';
-                document.getElementById('actionPlan').value = savedProsit.actionPlan || '';
-
-                keywords = savedProsit.keywords || [];
-                constraints = savedProsit.constraints || [];
-                solutionIdeas = savedProsit.solutionIdeas || [];
-
-                renderArray(keywords, 'keywordsContainer', deleteKeyword);
-                renderArray(constraints, 'constraintsContainer', deleteConstraint);
-                renderArray(solutionIdeas, 'solutionIdeasContainer', deleteSolutionIdea);
+        /*
+            Add an item to an array and render it (used for keywords, constraints, and solution ideas, when the Enter key is pressed)
+            @param {Event} event - The event object
+            @param {Array} array - The array to add the item to
+            @param {string} containerId - The ID of the container to render items into
+        */
+        function addItem(event, array, containerId) {
+            if (event.key === 'Enter') {
+            event.preventDefault();
+            const value = event.target.value.trim();
+            if (value) {
+                array.push(value);
+                renderArray(array, containerId);
+                event.target.value = '';
+                autoSave();
+            }
             }
         }
 
-        // Handle 'Enter' key event for adding items
-        function handleEnterKey(inputId, dataArray, containerId, deleteFunction) {
-            document.getElementById(inputId).addEventListener('keydown', function(event) {
-                if (event.key === 'Enter') {
-                    event.preventDefault();
-                    const value = event.target.value.trim();
-                    if (value) {
-                        dataArray.push(value);
-                        renderArray(dataArray, containerId, deleteFunction);
-                        autoSave();  // Auto-save whenever a new item is added
-                        event.target.value = ''; // Clear the input field only if the value is not empty
-                    }
-                }
-            });
-        }
-
-        function renderArray(array, containerId, deleteFunction) {
-            const container = document.getElementById(containerId);
-            container.innerHTML = '';
-            array.forEach((item, index) => {
-                const div = document.createElement('div');
-                div.classList.add('bg-blue-100', 'text-black', 'font-semibold', 'py-1', 'px-3', 'rounded-full', 'mr-2', 'mb-2', 'flex', 'items-center');
-                div.innerHTML = `
-                    ${item}
-                    <button class="ml-2 text-red-500 hover:text-red-700" onclick="${deleteFunction.name}(${index})">
-                        <i class="fas fa-times"></i>
-                    </button>
-                `;
-                container.appendChild(div);
-            });
-        }
-
-        function deleteItem(array, index, renderFunction) {
+        /*
+            Delete an item from an array and re-render it (used for keywords, constraints, and solution ideas, when deleting an item)
+            @param {string} containerId - The ID of the container to render items into
+            @param {number} index - The index of the item to delete
+        */
+        function deleteItem(containerId, index) {
+            let array;
+            if (containerId === 'keywordsContainer') {
+            array = keywords;
+            } else if (containerId === 'constraintsContainer') {
+            array = constraints;
+            } else if (containerId === 'solutionIdeasContainer') {
+            array = solutionIdeas;
+            }
             array.splice(index, 1);
-            renderFunction();
-            autoSave();  // Auto-save whenever an item is deleted
+            renderArray(array, containerId);
+            autoSave();
         }
 
-        // Event listeners and render functions
-        handleEnterKey('keywordInput', keywords, () => renderArray(keywords, 'keywordsContainer', deleteKeyword));
-        handleEnterKey('constraintInput', constraints, 'constraintsContainer', deleteConstraint);
-        handleEnterKey('solutionIdeaInput', solutionIdeas, 'solutionIdeasContainer', deleteSolutionIdea);
-        function deleteKeyword(index) { deleteItem(keywords, index, () => renderArray(keywords, 'keywordsContainer', deleteKeyword)); }
-        function deleteConstraint(index) { deleteItem(constraints, index, () => renderArray(constraints, 'constraintsContainer', deleteConstraint)); }
-        function deleteSolutionIdea(index) { deleteItem(solutionIdeas, index, () => renderArray(solutionIdeas, 'solutionIdeasContainer', deleteSolutionIdea)); }
+        /*
+            Automatically save the current prosit data to localStorage (is basically used everytime a change is made...)
+        */
+         function autoSave() {
+            const prositData = {
+            title: document.getElementById('title').value,
+            keywords: keywords,
+            context: document.getElementById('context').value,
+            problemStatement: document.getElementById('problemStatement').value,
+            constraints: constraints,
+            generalization: document.getElementById('generalization').value,
+            deliverables: document.getElementById('deliverables').value,
+            solutionIdeas: solutionIdeas,
+            actionPlan: document.getElementById('actionPlan').value
+            };
+            localStorage.setItem('prositData', JSON.stringify(prositData));
+        }
 
-        // Auto-save on input changes
-        const formFields = ['title', 'context', 'problemStatement', 'generalization', 'deliverables', 'actionPlan'];
-        formFields.forEach(fieldId => {
-            document.getElementById(fieldId).addEventListener('input', autoSave);
+        /*
+            Load the saved prosit data from localStorage (for pageloads)
+        */
+        function loadPrositFromStorage() {
+            const savedData = JSON.parse(localStorage.getItem('prositData'));
+            if (savedData) {
+            document.getElementById('title').value = savedData.title;
+            keywords = savedData.keywords || [];
+            renderArray(keywords, 'keywordsContainer');
+            document.getElementById('context').value = savedData.context;
+            document.getElementById('problemStatement').value = savedData.problemStatement;
+            constraints = savedData.constraints || [];
+            renderArray(constraints, 'constraintsContainer');
+            document.getElementById('generalization').value = savedData.generalization;
+            document.getElementById('deliverables').value = savedData.deliverables;
+            solutionIdeas = savedData.solutionIdeas || [];
+            renderArray(solutionIdeas, 'solutionIdeasContainer');
+            document.getElementById('actionPlan').value = savedData.actionPlan;
+            }
+        }
+
+        /*
+            Save the current prosit data to the list of prosits and localStorage (incomplete, need to add the descriptions, timestamps and members)
+        */
+        function saveProsit() {
+            const prositData = {
+            title: document.getElementById('title').value,
+            keywords: keywords,
+            context: document.getElementById('context').value,
+            problemStatement: document.getElementById('problemStatement').value,
+            constraints: constraints,
+            generalization: document.getElementById('generalization').value,
+            deliverables: document.getElementById('deliverables').value,
+            solutionIdeas: solutionIdeas,
+            actionPlan: document.getElementById('actionPlan').value
+            };
+            prosits.push(prositData);
+            localStorage.setItem('prosits', JSON.stringify(prosits));
+            renderPrositsList();
+        }
+
+        /*
+            Render the list of saved prosits (used for the edit prosits button)
+        */
+        function renderPrositsList() {
+            const prositsList = document.getElementById('prositsList');
+            prositsList.innerHTML = '';
+            prosits.forEach((prosit, index) => {
+            const div = document.createElement('div');
+            div.className = 'p-4 border border-gray-300 rounded-md flex justify-between items-center';
+            div.innerHTML = `
+                <div>
+                <h3 class="text-xl font-semibold">${prosit.title}</h3>
+                <p class="text-gray-600">Keywords: ${prosit.keywords.join(', ')}</p>
+                </div>
+                <div>
+                <button class="bg-blue-500 text-white px-4 py-2 rounded-md mr-2" onclick="editProsit(${index})">Edit</button>
+                <button class="bg-red-500 text-white px-4 py-2 rounded-md" onclick="deleteProsit(${index})">Delete</button>
+                </div>
+            `;
+            prositsList.appendChild(div);
+            });
+        }
+
+        /*
+            Edit a prosit by loading its data into the form (should be used when clicking on the edit button)
+            @param {number} index - The index of the prosit to edit
+        */
+        function editProsit(index) {
+            const prosit = prosits[index];
+            document.getElementById('title').value = prosit.title;
+            keywords = prosit.keywords;
+            renderArray(keywords, 'keywordsContainer');
+            document.getElementById('context').value = prosit.context;
+            document.getElementById('problemStatement').value = prosit.problemStatement;
+            constraints = prosit.constraints;
+            renderArray(constraints, 'constraintsContainer');
+            document.getElementById('generalization').value = prosit.generalization;
+            document.getElementById('deliverables').value = prosit.deliverables;
+            solutionIdeas = prosit.solutionIdeas;
+            renderArray(solutionIdeas, 'solutionIdeasContainer');
+            document.getElementById('actionPlan').value = prosit.actionPlan;
+            autoSave();
+        }
+
+        /*
+            Delete a prosit from the list and localStorage
+            @param {number} index - The index of the prosit to delete
+        */
+        function deleteProsit(index) {
+            prosits.splice(index, 1);
+            localStorage.setItem('prosits', JSON.stringify(prosits));
+            renderPrositsList();
+        }
+
+        /*
+            Generate a PDF of the current prosit data
+        */
+        function generatePDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            doc.text("Prosit Title: " + document.getElementById('title').value, 10, 10);
+            doc.text("Keywords: " + keywords.join(', '), 10, 20);
+            doc.text("Context: " + document.getElementById('context').value, 10, 30);
+            doc.text("Problem Statement: " + document.getElementById('problemStatement').value, 10, 40);
+            doc.text("Constraints: " + constraints.join(', '), 10, 50);
+            doc.text("Generalization: " + document.getElementById('generalization').value, 10, 60);
+            doc.text("Deliverables: " + document.getElementById('deliverables').value, 10, 70);
+            doc.text("Solution Ideas: " + solutionIdeas.join(', '), 10, 80);
+            doc.text("Action Plan: " + document.getElementById('actionPlan').value, 10, 90);
+
+            doc.save('prosit.pdf');
+        }
+
+        /*
+            Generate a Word document of the current prosit data
+        */
+        async function generateWord() {
+            const { Document, Packer, Paragraph, TextRun } = docx;
+
+            const doc = new Document({
+            sections: [{
+                properties: {},
+                children: [
+                new Paragraph({
+                    children: [
+                    new TextRun({
+                        text: "Prosit Title: " + document.getElementById('title').value,
+                        bold: true,
+                    }),
+                    ],
+                }),
+                new Paragraph("Keywords: " + keywords.join(', ')),
+                new Paragraph("Context: " + document.getElementById('context').value),
+                new Paragraph("Problem Statement: " + document.getElementById('problemStatement').value),
+                new Paragraph("Constraints: " + constraints.join(', ')),
+                new Paragraph("Generalization: " + document.getElementById('generalization').value),
+                new Paragraph("Deliverables: " + document.getElementById('deliverables').value),
+                new Paragraph("Solution Ideas: " + solutionIdeas.join(', ')),
+                new Paragraph("Action Plan: " + document.getElementById('actionPlan').value),
+                new Paragraph("Scribe: " + document.getElementById('scribe').value),
+                new Paragraph("Manager: " + document.getElementById('manager').value),
+                new Paragraph("Time Holder: " + document.getElementById('timeHolder').value),
+                new Paragraph("Secretary: " + document.getElementById('secretary').value),
+                ],
+            }],
+            });
+
+            const blob = await Packer.toBlob(doc);
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'prosit.docx';
+            link.click();
+        }
+
+        
+        /*
+            Update the dark mode toggle button icon
+            @param {string} theme - The current theme ('dark' or 'light')
+        */
+        function updateToggleButton(theme) {
+            const toggleButton = document.getElementById('darkModeToggle');
+            if (theme === 'dark') {
+            toggleButton.innerHTML = '<i class="fa fa-sun"></i>';
+            } else {
+            toggleButton.innerHTML = '<i class="fa fa-moon"></i>';
+            }
+        }
+
+
+        /*
+            Loads the saved theme from localStorage or browser settings (for pageloads)
+        */
+        function loadThemeFromStorage() {
+        // Check localStorage for the user's preferred color scheme
+            const savedTheme = localStorage.getItem('theme');
+            if (savedTheme) {
+            document.body.classList.add(savedTheme);
+            updateToggleButton(savedTheme);
+            } else {
+            // Detect user's preferred color scheme
+            const userPrefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            if (userPrefersDark) {
+                document.body.classList.add('dark');
+                updateToggleButton('dark');
+            } else {
+                updateToggleButton('light');
+            }
+            }
+        }
+        // Event listeners
+
+        document.getElementById('keywordInput').addEventListener('keydown', function(event) {
+            addItem(event, keywords, 'keywordsContainer');
         });
 
-        // Load saved data when the page loads
+        document.getElementById('constraintInput').addEventListener('keydown', function(event) {
+            addItem(event, constraints, 'constraintsContainer');
+        });
+
+        document.getElementById('solutionIdeaInput').addEventListener('keydown', function(event) {
+            addItem(event, solutionIdeas, 'solutionIdeasContainer');
+        });
+
+
+
+        document.getElementById('savePrositBtn').addEventListener('click', function() {
+            autoSave();
+            saveProsit();
+            generatePDF();
+        });
+        document.getElementById('generateWordBtn').addEventListener('click', function() {
+            autoSave();
+            saveProsit();
+            generateWord();
+        });
+
+
+        document.getElementById('createTab').addEventListener('click', function() {
+            document.getElementById('createPrositForm').classList.remove('hidden');
+            document.getElementById('manageProsits').classList.add('hidden');
+            this.classList.remove('bg-gray-200', 'text-gray-800');
+            this.classList.add('bg-blue-500', 'text-white');
+            document.getElementById('manageTab').classList.remove('bg-blue-500', 'text-white');
+            document.getElementById('manageTab').classList.add('bg-gray-200', 'text-gray-800');
+        });
+
+        document.getElementById('manageTab').addEventListener('click', function() {
+            document.getElementById('createPrositForm').classList.add('hidden');
+            document.getElementById('manageProsits').classList.remove('hidden');
+            this.classList.remove('bg-gray-200', 'text-gray-800');
+            this.classList.add('bg-blue-500', 'text-white');
+            document.getElementById('createTab').classList.remove('bg-blue-500', 'text-white');
+            document.getElementById('createTab').classList.add('bg-gray-200', 'text-gray-800');
+            renderPrositsList();
+        });
+
+
+        const toggleButton = document.getElementById('darkModeToggle');
+        toggleButton.addEventListener('click', () => {
+            document.body.classList.toggle('dark');
+            if (document.body.classList.contains('dark')) {
+            localStorage.setItem('theme', 'dark');
+            updateToggleButton('dark');
+            } else {
+            localStorage.setItem('theme', 'light');
+            updateToggleButton('light');
+            }
+        });
+
+        // Add dark mode styles
+        const style = document.createElement('style');
+        style.innerHTML = `
+            .dark {
+            background-color: #1a202c;
+            color: #cbd5e0;
+            }
+            .dark .bg-white {
+            background-color: #2d3748;
+            }
+            .dark .text-gray-800 {
+            color: #cbd5e0;
+            }
+            .dark .bg-gray-200 {
+            background-color: #4a5568;
+            }
+            .dark .bg-orange-500 {
+            background-color: #ed8936;
+            }
+            .dark .bg-blue-500 {
+            background-color: #ed8936;
+            }
+            .dark .hover\\:bg-blue-600:hover {
+            background-color: #dd6b20;
+            }
+            .dark input, .dark textarea {
+            background-color: #2d3748;
+            color: #FFF;
+            border-color: #4a5568;
+            }
+            .dark input::placeholder, .dark textarea::placeholder {
+            color: #a0aec0;
+            }
+        `;
+        document.head.appendChild(style);
+
+        // Load prosit data and theme on window load
         window.onload = function() {
             loadPrositFromStorage();
+            renderPrositsList();
+            loadThemeFromStorage();
         };
-
-    
-    document.getElementById('savePrositBtn').addEventListener('click', function() {
-    const title = document.getElementById('title').value;
-    const context = document.getElementById('context').value;
-    const problemStatement = document.getElementById('problemStatement').value;
-    const generalization = document.getElementById('generalization').value;
-    const deliverables = document.getElementById('deliverables').value;
-    const actionPlan = document.getElementById('actionPlan').value;
-
-    const prosit = {
-        title,
-        keywords,
-        context,
-        problemStatement,
-        constraints,
-        generalization,
-        deliverables,
-        solutionIdeas,
-        actionPlan
-    };
-
-    // Save to local storage (optional)
-    let prosits = JSON.parse(localStorage.getItem('prosits')) || [];
-    prosits.push(prosit);
-    localStorage.setItem('prosits', JSON.stringify(prosits));
-
-    // PDF Generation
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    let yPosition = 10; // Initial vertical position for content
-
-    // Title
-    doc.text(`Prosit Title: ${title}`, 10, yPosition);
-    yPosition += 10;  // Move to next line
-
-    // Render Keywords in PDF
-    doc.text('Keywords:', 10, yPosition);
-    yPosition += 10;
-    yPosition = renderItemsInPDF(doc, keywords, yPosition); // Adjust yPosition based on items rendered
-
-    // Render Context
-    doc.text(`Context: ${context}`, 10, yPosition);
-    yPosition += 10;
-
-    // Render Problem Statement
-    doc.text(`Problem Statement: ${problemStatement}`, 10, yPosition);
-    yPosition += 10;
-
-    // Render Constraints in PDF (using same format as keywords)
-    doc.text('Constraints:', 10, yPosition);
-    yPosition += 10;
-    yPosition = renderItemsInPDF(doc, constraints, yPosition);
-
-    // Render Generalization
-    doc.text(`Generalization: ${generalization}`, 10, yPosition);
-    yPosition += 10;
-
-    // Render Deliverables
-    doc.text(`Deliverables: ${deliverables}`, 10, yPosition);
-    yPosition += 10;
-
-    // Render Solution Ideas in PDF (using same format as keywords)
-    doc.text('Solution Ideas:', 10, yPosition);
-    yPosition += 10;
-    yPosition = renderItemsInPDF(doc, solutionIdeas, yPosition);
-
-    // Render Action Plan
-    doc.text(`Action Plan: ${actionPlan}`, 10, yPosition);
-    yPosition += 10;
-
-    // Save the PDF file
-    doc.save(`prosit-${title}.pdf`);
-});
-
-/**
-Function to render items in rows of 3 per line, with a blank line after each row.
-@param {Object} doc - The jsPDF instance.
-@param {Array} items - The array of items (keywords, constraints, solution ideas).
-@param {number} startY - The starting Y position in the PDF.
-@returns {number} Updated Y position after all items are rendered.
- */
-
-function renderItemsInPDF(doc, items, startY) {
-    let xPosition = 10; // Initial X position
-    let rowCounter = 0; // To track 3 items per line
-    let yPosition = startY; // Start from provided vertical position
-    let rowWidth = 190; // Maximum width of a row
-    let fontSize = 12; // Font size for items
-    let fontColor = 0; // Font color for items (black)
-
-    doc.setFontSize(fontSize);
-    doc.setTextColor(fontColor);
-
-    items.forEach((item, index) => {
-        // Calculate the width of the current item
-        let itemWidth = doc.getTextWidth(item) + 3; // Add 5 for the "pin" symbol
-
-        // Check if the item can fit in the current row
-        if (xPosition + itemWidth > rowWidth) {
-            // Move to the next line
-            xPosition = 10; // Reset X position
-            yPosition += 10; // Move down by 10 for the next row
-            rowCounter = 0; // Reset row counter
-        }
-
-        // Add a "pin" symbol (•) before each item
-        doc.text('•', xPosition, yPosition); 
-        doc.text(item, xPosition + 5, yPosition); // Adjust x position to give space for the "pin"
-
-        xPosition += itemWidth + 10; // Move to the next column for the next item
-
-        rowCounter++;
-    });
-
-    // Justify text if no items overflow
-    if (items.length < 3) {
-        let lastRowWidth = 0;
-        for (let i = items.length - 1; i >= 0; i--) {
-            lastRowWidth += doc.getTextWidth(items[i]) + 3;
-        }
-        let remainingWidth = rowWidth - lastRowWidth;
-        let spacing = remainingWidth / (items.length + 1);
-        xPosition = 10 + spacing;
-        yPosition -= 10;
-        rowCounter = 0;
-        items.forEach((item, index) => {
-            // Add a "pin" symbol (•) before each item
-            doc.text('•', xPosition, yPosition); 
-            doc.text(item, xPosition + 5, yPosition); // Adjust x position to give space for the "pin"
-            xPosition += doc.getTextWidth(item) + 3 + spacing;
-        });
-        yPosition += 10;
-    }
-
-    // Return the new Y position after all items are rendered
-    return yPosition + 10; // Add some extra spacing after the items
-}
     </script>
 </body>
 </html>
